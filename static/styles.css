@@ -1,0 +1,39 @@
+body {
+    background-color: #121212; /* Dark background for the body */
+    color: white; /* Light text color */
+    font-family: Arial, sans-serif;
+}
+
+canvas {
+    background-color: #1f1f1f; /* Dark background for the canvas */
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    margin-top: 20px;
+}
+
+/* Dark mode styles for the date picker */
+input[type="date"] {
+    background-color: #333; /* Dark background */
+    color: white; /* White text color */
+    border: 1px solid #555; /* Lighter border for better contrast */
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+input[type="date"]:focus {
+    background-color: #444; /* Slightly lighter background when focused */
+    border-color: #777; /* Lighter border when focused */
+    outline: none;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+    background-color: #555; /* Darker indicator button */
+    border-radius: 5px;
+    padding: 5px;
+}
+
+input[type="date"]:hover {
+    background-color: #444; /* Darken on hover */
+}
