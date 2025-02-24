@@ -10,7 +10,8 @@
 <body>
     <div style="padding: 20px;">
         <input type="date" id="datePicker">
-        <button class="styled-button" onclick="deleteData()">Delete Data</button> <!-- Styled button -->
+        <button class="styled-button delete-button" onclick="deleteData()">Delete Data</button>
+        <button class="styled-button delete-all-button" onclick="deleteAllData()">Delete All Data</button>
         <canvas id="combinedChart"></canvas>
     </div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>

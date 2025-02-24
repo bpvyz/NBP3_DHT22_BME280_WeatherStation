@@ -180,6 +180,35 @@ async function deleteData() {
     }
 }
 
+// Delete all data
+async function deleteAllData() {
+    if (confirm("Are you sure you want to delete ALL data? This action cannot be undone.")) {
+        try {
+            const response = await fetch('/delete-all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            customAlert.alert(result.message, 'Success');
+
+            // Refresh the chart with today's date after deletion
+            const today = new Date().toISOString().split('T')[0];
+            datePicker.value = today;
+            updateCharts(today);
+        } catch (error) {
+            console.error("Error deleting all data:", error);
+            customAlert.alert('Failed to delete all data. Please try again.', 'Error');
+        }
+    }
+}
+
 // Initialize the page with today's date
 document.addEventListener('DOMContentLoaded', () => {
     const today = new Date().toISOString().split('T')[0]; // Date in YYYY-MM-DD format

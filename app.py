@@ -79,6 +79,19 @@ def delete_data():
 
     return jsonify({"message": f"Data for {date_str} deleted successfully"})
 
+@app.route('/delete-all', methods=['POST'])
+def delete_all_data():
+    try:
+        # Define a time range that covers all data (e.g., from the beginning of time to now)
+        start_time = "1970-01-01T00:00:00Z"  # Start from the Unix epoch
+        end_time = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')  # Current time in UTC
+
+        # Delete all data in the bucket
+        delete_api.delete(start_time, end_time, '_measurement="weather_measurements"', bucket=INFLUX_BUCKET, org=INFLUX_ORG)
+
+        return jsonify({"message": "All data deleted successfully"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete all data: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
