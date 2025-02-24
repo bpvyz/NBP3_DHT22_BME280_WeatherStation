@@ -2,28 +2,92 @@ document.getElementById('datePicker').addEventListener('change', function () {
     updateCharts(this.value);
 });
 
-// Čuvamo instancu grafa globalno da bismo ga uništili pre kreiranja novog
+// Store the chart instance globally to destroy it before creating a new one
 let chartInstance = null;
 let previousDate = document.getElementById('datePicker').value; // Store the initial date value
 
-async function fetchData(date) {
-    const response = await fetch(`/data?date=${date}`);
-    return await response.json();
+// Custom alert implementation
+function CustomAlert() {
+    this.alert = function (message, title) {
+        // Create the overlay and dialog box
+        const overlay = document.createElement('div');
+        overlay.id = 'dialogoverlay';
+        overlay.style.height = window.innerHeight + "px";
+        document.body.appendChild(overlay);
+
+        const dialogBox = document.createElement('div');
+        dialogBox.id = 'dialogbox';
+        dialogBox.className = 'slit-in-vertical';
+        dialogBox.innerHTML = `
+            <div>
+                <div id="dialogboxhead"></div>
+                <div id="dialogboxbody"></div>
+                <div id="dialogboxfoot"></div>
+            </div>
+        `;
+        document.body.appendChild(dialogBox);
+
+        let dialogoverlay = document.getElementById('dialogoverlay');
+        let dialogbox = document.getElementById('dialogbox');
+
+        dialogoverlay.style.display = "block";
+        dialogbox.style.display = "block";
+        dialogbox.style.top = "50%";
+
+        // Set the heading of the alert box
+        if (typeof title === 'undefined') {
+            document.getElementById('dialogboxhead').style.display = 'none';
+        } else {
+            document.getElementById('dialogboxhead').innerHTML = '<i class="fa fa-exclamation-circle" aria-hidden="true"></i> ' + title;
+        }
+
+        // Set the message of the alert box
+        document.getElementById('dialogboxbody').innerHTML = message;
+
+        // Add the footer button to dismiss the alert
+        document.getElementById('dialogboxfoot').innerHTML = '<button class="pure-material-button-contained active" onclick="customAlert.ok()">OK</button>';
+    };
+
+    this.ok = function () {
+        // Remove the modal dialog and overlay when the OK button is clicked
+        document.getElementById('dialogbox').style.display = "none";
+        document.getElementById('dialogoverlay').style.display = "none";
+    };
 }
 
+let customAlert = new CustomAlert();
+
+// Fetch data from the server
+async function fetchData(date) {
+    try {
+        const response = await fetch(`/data?date=${date}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Error fetching data:", error);
+        customAlert.alert('Failed to fetch data. Please try again.', 'Error');
+        return null;
+    }
+}
+
+// Update the charts with new data
 async function updateCharts(date) {
     const data = await fetchData(date);
 
-    // Ako nema podataka, prikazujemo custom alert
+    // If no data is available, show an alert and revert to the previous date
     if (!data || data.length === 0) {
         console.warn("No data available for the selected date:", date);
         customAlert.alert('No data available for the selected date. Please try another date.', 'No Data Available');
-        // Restore the previous date after the alert is shown
-        document.getElementById('datePicker').value = previousDate;
+        document.getElementById('datePicker').value = previousDate; // Revert to the previous date
         return;
     }
 
-    previousDate = document.getElementById('datePicker').value;
+    // Save the current date as the previous date
+    previousDate = date;
+
+    // Extract data for the chart
     const labels = data.map(entry => new Date(entry.time).toLocaleTimeString('sr-RS', { hour: '2-digit', minute: '2-digit' }));
     const temperatures = data.map(entry => entry.temperature);
     const humidities = data.map(entry => entry.humidity);
@@ -31,12 +95,12 @@ async function updateCharts(date) {
 
     const ctx = document.getElementById('combinedChart').getContext('2d');
 
-    // Uništimo stari graf ako postoji
+    // Destroy the old chart if it exists
     if (chartInstance) {
         chartInstance.destroy();
     }
 
-    // Kreiramo novi graf
+    // Create a new chart
     chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
@@ -67,8 +131,8 @@ async function updateCharts(date) {
         },
         options: {
             interaction: {
-              intersect: false,
-              mode: 'index',
+                intersect: false,
+                mode: 'index',
             },
             responsive: true,
             plugins: {
@@ -84,59 +148,42 @@ async function updateCharts(date) {
     });
 }
 
-function CustomAlert(){
-  this.alert = function(message, title){
-    // Create the overlay and dialog box without modifying the entire body
-    const overlay = document.createElement('div');
-    overlay.id = 'dialogoverlay';
-    overlay.style.height = window.innerHeight + "px";
-    document.body.appendChild(overlay);
-
-    const dialogBox = document.createElement('div');
-    dialogBox.id = 'dialogbox';
-    dialogBox.className = 'slit-in-vertical';
-    dialogBox.innerHTML = `
-      <div>
-        <div id="dialogboxhead"></div>
-        <div id="dialogboxbody"></div>
-        <div id="dialogboxfoot"></div>
-      </div>
-    `;
-    document.body.appendChild(dialogBox);
-
-    let dialogoverlay = document.getElementById('dialogoverlay');
-    let dialogbox = document.getElementById('dialogbox');
-
-    dialogoverlay.style.display = "block";
-    dialogbox.style.display = "block";
-    dialogbox.style.top = "50%";
-
-    // Set the heading of the alert box
-    if (typeof title === 'undefined') {
-      document.getElementById('dialogboxhead').style.display = 'none';
-    } else {
-      document.getElementById('dialogboxhead').innerHTML = '<i class="fa fa-exclamation-circle" aria-hidden="true"></i> ' + title;
+// Delete data for the selected date
+async function deleteData() {
+    const date = document.getElementById('datePicker').value;
+    if (!date) {
+        customAlert.alert('Please select a date first.', 'Error');
+        return;
     }
 
-    // Set the message of the alert box
-    document.getElementById('dialogboxbody').innerHTML = message;
+    if (confirm(`Are you sure you want to delete data for ${date}?`)) {
+        try {
+            const response = await fetch('/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ date: date }),
+            });
 
-    // Add the footer button to dismiss the alert
-    document.getElementById('dialogboxfoot').innerHTML = '<button class="pure-material-button-contained active" onclick="customAlert.ok()">OK</button>';
-  }
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
 
-  this.ok = function(){
-    // Remove the modal dialog and overlay when the OK button is clicked
-    document.getElementById('dialogbox').style.display = "none";
-    document.getElementById('dialogoverlay').style.display = "none";
-  }
+            const result = await response.json();
+            customAlert.alert(result.message, 'Success');
+            updateCharts(date); // Refresh the chart after deletion
+        } catch (error) {
+            console.error("Error deleting data:", error);
+            customAlert.alert('Failed to delete data. Please try again.', 'Error');
+        }
+    }
 }
 
-let customAlert = new CustomAlert();
-
+// Initialize the page with today's date
 document.addEventListener('DOMContentLoaded', () => {
     const today = new Date().toISOString().split('T')[0]; // Date in YYYY-MM-DD format
     document.getElementById('datePicker').value = today; // Set today's date in the date picker
-    previousDate = today;  // Save the initial date when page loads
+    previousDate = today; // Save the initial date when the page loads
     updateCharts(today);
 });

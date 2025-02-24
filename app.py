@@ -13,6 +13,7 @@ INFLUX_BUCKET = "weatherstation"
 
 client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 query_api = client.query_api()
+delete_api = client.delete_api()
 
 
 @app.route('/')
@@ -53,6 +54,30 @@ def get_data():
              "air_quality": r["air_quality"]} for table in tables for r in table.records]
 
     return jsonify(data)
+
+
+@app.route('/delete', methods=['POST'])
+def delete_data():
+    # Get the date from the request
+    date_str = request.json.get('date')
+    if not date_str:
+        return jsonify({"error": "Date parameter is required"}), 400
+
+    # Parse the date string into a datetime object
+    belgrade_tz = pytz.timezone('Europe/Belgrade')
+    current_date = datetime.strptime(date_str, '%Y-%m-%d').replace(tzinfo=belgrade_tz)
+
+    # Calculate the previous day's date
+    previous_date = (current_date - timedelta(days=1)).strftime('%Y-%m-%d')
+
+    # Define the time range for deletion
+    start_time = f"{previous_date}T23:00:00Z"  # 23:00 previous day in UTC
+    end_time = f"{date_str}T22:59:59Z"        # 22:59 current day in UTC
+
+    # Delete data from InfluxDB
+    delete_api.delete(start_time, end_time, f'_measurement="weather_measurements"', bucket=INFLUX_BUCKET, org=INFLUX_ORG)
+
+    return jsonify({"message": f"Data for {date_str} deleted successfully"})
 
 
 if __name__ == '__main__':
