@@ -1,14 +1,9 @@
 from flask import Flask, request, jsonify, render_template
-from cassandra.cluster import Cluster
 from influxdb_client import InfluxDBClient
 from datetime import datetime, timedelta, timezone
+import pytz
 
 app = Flask(__name__)
-
-# Povezivanje na Cassandra
-cluster = Cluster(['127.0.0.1'])
-session = cluster.connect()
-session.set_keyspace('weather_data')
 
 # Povezivanje na InfluxDB
 INFLUX_URL = "http://localhost:8086"
@@ -27,31 +22,35 @@ def index():
 
 @app.route('/data', methods=['GET'])
 def get_data():
-    date = request.args.get('date', datetime.now(timezone.utc).strftime('%Y-%m-%d'))
+    # Get the date from the request arguments
+    date_str = request.args.get('date', datetime.now(pytz.timezone('Europe/Belgrade')).strftime('%Y-%m-%d'))
 
-    if date == datetime.now(timezone.utc).strftime('%Y-%m-%d'):
-        # Izračunaj početak tekućeg dana (00:00) u UTC vremenu
-        start_of_day = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    # Parse the date string into a datetime object
+    belgrade_tz = pytz.timezone('Europe/Belgrade')
+    current_date = datetime.strptime(date_str, '%Y-%m-%d').replace(tzinfo=belgrade_tz)
 
-        # Upit prema InfluxDB za podatke od početka dana do sada
-        query = f"""
-        from(bucket: "{INFLUX_BUCKET}")
-            |> range(start: {start_of_day.isoformat()})
-            |> filter(fn: (r) => r["_measurement"] == "weather_measurements")
-            |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
-        """
+    # Calculate the previous day's date
+    previous_date = (current_date - timedelta(days=1)).strftime('%Y-%m-%d')
 
-        tables = query_api.query(query)
-        data = [{"time": r.get_time(), "temperature": r["temperature"], "humidity": r["humidity"],
-                 "air_quality": r["air_quality"]} for table in tables for r in table.records]
+    # Postavi vremenske granice za dati datum
+    start_time = f"{previous_date}T23:00:00Z"  # 23:00 previous day in UTC
+    end_time = f"{date_str}T22:59:59Z"        # 22:59 current day in UTC
 
-    else:
-        # Dohvati podatke iz Cassandre za prethodne dane
-        rows = session.execute(
-            "SELECT * FROM weather_archive WHERE location = 'Nis' AND timestamp >= %s AND timestamp < %s",
-            (date + " 00:00:00", date + " 23:59:59"))
-        data = [{"time": row.timestamp, "temperature": row.temperature, "humidity": row.humidity,
-                 "air_quality": row.air_quality} for row in rows]
+    # Upit za InfluxDB
+    query = f"""
+    from(bucket: "{INFLUX_BUCKET}")
+        |> range(start: {start_time}, stop: {end_time})
+        |> filter(fn: (r) => r["_measurement"] == "weather_measurements")
+        |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+    """
+
+    tables = query_api.query(query)
+
+    # Convert UTC time to 'Europe/Belgrade' timezone
+    data = [{"time": r.get_time().replace(tzinfo=timezone.utc).astimezone(belgrade_tz).strftime('%Y-%m-%d %H:%M:%S'),
+             "temperature": r["temperature"],
+             "humidity": r["humidity"],
+             "air_quality": r["air_quality"]} for table in tables for r in table.records]
 
     return jsonify(data)
 
