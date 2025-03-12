@@ -8,7 +8,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 
 # InfluxDB connection settings
 INFLUX_URL = "http://localhost:8086"
-INFLUX_TOKEN = "yyIUJ7Qr2QS9eJ3VS2jIuQ3vxctm_E4JaAIwnAocdZFeeUmQ_B0L_NRVvEcFnhjCeC_n_J3HNT-QBNDpNXGIDA=="
+INFLUX_TOKEN = "qJ0X5lH8RtqB-IWyPzaEDDqGGdc3xQ8M4HcinZRqqdOV-UnoRa6nQYwoYWRz_9jRGY5UBlIt1eLSVzuBi-52XA=="
 INFLUX_ORG = "nbp"
 INFLUX_BUCKET = "weatherstation"
 

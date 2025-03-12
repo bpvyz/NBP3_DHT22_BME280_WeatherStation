@@ -1,13 +1,15 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 from influxdb_client import InfluxDBClient
 from datetime import datetime, timedelta, timezone
 import pytz
+import time
+import json
 
 app = Flask(__name__)
 
-# Povezivanje na InfluxDB
+# InfluxDB connection settings
 INFLUX_URL = "http://localhost:8086"
-INFLUX_TOKEN = "yyIUJ7Qr2QS9eJ3VS2jIuQ3vxctm_E4JaAIwnAocdZFeeUmQ_B0L_NRVvEcFnhjCeC_n_J3HNT-QBNDpNXGIDA=="
+INFLUX_TOKEN = "qJ0X5lH8RtqB-IWyPzaEDDqGGdc3xQ8M4HcinZRqqdOV-UnoRa6nQYwoYWRz_9jRGY5UBlIt1eLSVzuBi-52XA=="
 INFLUX_ORG = "nbp"
 INFLUX_BUCKET = "weatherstation"
 
@@ -33,11 +35,11 @@ def get_data():
     # Calculate the previous day's date
     previous_date = (current_date - timedelta(days=1)).strftime('%Y-%m-%d')
 
-    # Postavi vremenske granice za dati datum
+    # Set time boundaries for the given date
     start_time = f"{previous_date}T23:00:00Z"  # 23:00 previous day in UTC
     end_time = f"{date_str}T22:59:59Z"        # 22:59 current day in UTC
 
-    # Upit za InfluxDB
+    # Query InfluxDB
     query = f"""
     from(bucket: "{INFLUX_BUCKET}")
         |> range(start: {start_time}, stop: {end_time})
@@ -54,6 +56,37 @@ def get_data():
              "air_quality": r["air_quality"]} for table in tables for r in table.records]
 
     return jsonify(data)
+
+
+@app.route('/stream')
+def stream():
+    def event_stream():
+        belgrade_tz = pytz.timezone('Europe/Belgrade')
+        while True:
+            try:
+                # Query the latest data from InfluxDB
+                query = f'''
+                from(bucket: "{INFLUX_BUCKET}")
+                    |> range(start: -1m)  // Get data from the last 1 minute
+                    |> filter(fn: (r) => r["_measurement"] == "weather_measurements")
+                    |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+                '''
+
+                tables = query_api.query(query)
+                data = [{"time": r.get_time().replace(tzinfo=timezone.utc).astimezone(belgrade_tz).strftime('%Y-%m-%d %H:%M:%S'),
+                         "temperature": r["temperature"],
+                         "humidity": r["humidity"],
+                         "air_quality": r["air_quality"]} for table in tables for r in table.records]
+
+                if data:
+                    yield f"data: {json.dumps(data)}\n\n"  # Send data as SSE
+            except Exception as e:
+                print(f"Error querying InfluxDB: {e}")
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"  # Send error as SSE
+
+            time.sleep(30)  # Wait 10 seconds before the next update
+
+    return Response(event_stream(), mimetype="text/event-stream")
 
 
 @app.route('/delete', methods=['POST'])
@@ -79,6 +112,7 @@ def delete_data():
 
     return jsonify({"message": f"Data for {date_str} deleted successfully"})
 
+
 @app.route('/delete-all', methods=['POST'])
 def delete_all_data():
     try:
@@ -92,6 +126,7 @@ def delete_all_data():
         return jsonify({"message": "All data deleted successfully"})
     except Exception as e:
         return jsonify({"error": f"Failed to delete all data: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)

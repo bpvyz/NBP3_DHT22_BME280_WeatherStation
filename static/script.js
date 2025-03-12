@@ -215,4 +215,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('datePicker').value = today; // Set today's date in the date picker
     previousDate = today; // Save the initial date when the page loads
     updateCharts(today);
+
+    // Set up SSE for real-time updates
+    const eventSource = new EventSource('/stream');
+    eventSource.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+        updateCharts(document.getElementById('datePicker').value); // Update the chart with new data
+    };
+
+    eventSource.onerror = function (event) {
+        console.error('EventSource failed:', event);
+    };
 });
