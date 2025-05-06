@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Station Dashboard</title>
+    <link rel="stylesheet" href="static/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div style="padding: 20px;">
+        <input type="date" id="datePicker">
+        <button class="styled-button delete-button" onclick="deleteData()">Delete Data</button>
+        <button class="styled-button delete-all-button" onclick="deleteAllData()">Delete All Data</button>
+        <canvas id="combinedChart"></canvas>
+    </div>
+    <script>
+        // Set up SSE for real-time updates
+        const eventSource = new EventSource('/stream');
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            updateChart(data); // Update the chart with new data
+        };
+
+        eventSource.onerror = function(event) {
+            console.error('EventSource failed:', event);
+        };
+
+        // Initialize date picker and fetch data for the selected date
+        const datePicker = document.getElementById('datePicker');
+        datePicker.value = new Date().toISOString().split('T')[0]; // Set default date to today
+        datePicker.addEventListener('change', function() {
+            fetchData(this.value);
+        });
+
+        // Fetch initial data
+        fetchData(datePicker.value);
+    </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
