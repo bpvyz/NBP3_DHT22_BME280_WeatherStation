@@ -1,17 +1,21 @@
 from flask import Flask, request, jsonify, render_template, Response
 from influxdb_client import InfluxDBClient
 from datetime import datetime, timedelta, timezone
+from dotenv import load_dotenv
 import pytz
 import time
 import json
+import os
+
+load_dotenv()
 
 app = Flask(__name__)
 
 # InfluxDB connection settings
-INFLUX_URL = "http://localhost:8086"
-INFLUX_TOKEN = "qJ0X5lH8RtqB-IWyPzaEDDqGGdc3xQ8M4HcinZRqqdOV-UnoRa6nQYwoYWRz_9jRGY5UBlIt1eLSVzuBi-52XA=="
-INFLUX_ORG = "nbp"
-INFLUX_BUCKET = "weatherstation"
+INFLUX_URL = os.getenv("INFLUX_URL")
+INFLUX_TOKEN = os.getenv("INFLUX_TOKEN")
+INFLUX_ORG = os.getenv("INFLUX_ORG")
+INFLUX_BUCKET = os.getenv("INFLUX_BUCKET")
 
 client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 query_api = client.query_api()
@@ -53,7 +57,7 @@ def get_data():
     data = [{"time": r.get_time().replace(tzinfo=timezone.utc).astimezone(belgrade_tz).strftime('%Y-%m-%d %H:%M:%S'),
              "temperature": r["temperature"],
              "humidity": r["humidity"],
-             "air_quality": r["air_quality"]} for table in tables for r in table.records]
+             "pressure": r["pressure"]} for table in tables for r in table.records]
 
     return jsonify(data)
 
@@ -76,7 +80,7 @@ def stream():
                 data = [{"time": r.get_time().replace(tzinfo=timezone.utc).astimezone(belgrade_tz).strftime('%Y-%m-%d %H:%M:%S'),
                          "temperature": r["temperature"],
                          "humidity": r["humidity"],
-                         "air_quality": r["air_quality"]} for table in tables for r in table.records]
+                         "pressure": r["pressure"]} for table in tables for r in table.records]
 
                 if data:
                     yield f"data: {json.dumps(data)}\n\n"  # Send data as SSE

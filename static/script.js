@@ -91,7 +91,7 @@ async function updateCharts(date) {
     const labels = data.map(entry => new Date(entry.time).toLocaleTimeString('sr-RS', { hour: '2-digit', minute: '2-digit' }));
     const temperatures = data.map(entry => entry.temperature);
     const humidities = data.map(entry => entry.humidity);
-    const airQualities = data.map(entry => entry.air_quality);
+    const pressures = data.map(entry => entry.pressure);
 
     const ctx = document.getElementById('combinedChart').getContext('2d');
 
@@ -121,8 +121,8 @@ async function updateCharts(date) {
                     fill: true
                 },
                 {
-                    label: 'Air Quality',
-                    data: airQualities,
+                    label: 'Pressure (hBar)',
+                    data: pressures,
                     borderColor: 'green',
                     backgroundColor: 'rgba(0, 255, 0, 0.2)',
                     fill: true
